@@ -1,0 +1,10 @@
+{
+    "httpMethod": "PUT",
+    "body": "{\"token\": \"abc123\"}",
+    "headers": {
+      "Content-Type": "application/json"
+    },
+    "pathParameters": {
+      "id": "3cf1e3c0-2180-11ee-a06c-c9453a017c68"
+    }
+  }

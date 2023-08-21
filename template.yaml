@@ -1,0 +1,185 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  devfest-upload
+
+  Sample SAM Template for devfest-upload
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 300
+
+Resources:
+
+  FileTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+      TableName: files
+      Tags:
+        project: Devfest
+        environment: dev
+
+  Devfest:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+
+  UploadFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: upload/
+      Handler: app.lambdaHandler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTable
+        - S3CrudPolicy:
+            BucketName: devfest-file
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Events:
+        UploadApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Devfest
+            Path: /upload
+            Method: POST
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref FileTable
+          SECRET_KEY: secretkey
+
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - app.ts
+
+  GetFilesFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: get-files/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTable
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Events:
+        UploadApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Devfest
+            Path: /download
+            Method: GET
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref FileTable
+          SECRET_KEY: secretkey
+
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - app.ts
+  TokenFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: token/
+      Handler: app.tokenHandler
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Events:
+        UploadApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Devfest
+            Path: /token
+            Method: GET
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - app.ts
+
+  PutFunction:
+    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Properties:
+      CodeUri: put/
+      Handler: app.putHandler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref FileTable
+      Runtime: nodejs18.x
+      Architectures:
+        - x86_64
+      Events:
+        UploadApi:
+          Type: Api
+          Properties:
+            RestApiId: !Ref Devfest
+            Path: /put/{id}
+            Method: put
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: !Ref FileTable
+          SECRET_KEY_VOTE: secretkeyvote
+          SECRET_KEY: secretkey
+
+    Metadata: # Manage esbuild properties
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "es2020"
+        Sourcemap: true
+        EntryPoints: 
+        - app.ts
+
+  # UrlPreSignedFunction:
+  #   Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+  #   Properties:
+  #     CodeUri: url-pre-signed/
+  #     Handler: app.handler
+  #     Runtime: nodejs18.x
+  #     Architectures:
+  #       - x86_64
+  #     Events:
+  #       UploadApi:
+  #         Type: Api
+  #         Properties:
+  #           RestApiId: !Ref Devfest
+  #           Path: /signed
+  #           Method: get
+  #     Environment:
+  #       Variables:
+  #         DYNAMODB_TABLE: !Ref FileTable
+  #         SECRET_KEY: jesuisunefourgere
+
+  #   Metadata: # Manage esbuild properties
+  #     BuildMethod: esbuild
+  #     BuildProperties:
+  #       Minify: true
+  #       Target: "es2020"
+  #       Sourcemap: true
+  #       EntryPoints: 
+  #       - app.ts
+
+Outputs:
+  ApiUrl:
+    Description: URL of the API endpoint
+    Value: !Sub 'https://${Devfest}.execute-api.${AWS::Region}.amazonaws.com/${Devfest.Stage}'
